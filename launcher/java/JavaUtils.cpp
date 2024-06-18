@@ -393,7 +393,13 @@ QList<QString> JavaUtils::FindJavaPaths()
         QDir dir(dirPath);
         if (!dir.exists())
             return;
-        auto entries = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+        QFileInfoList entries;
+        if (dirPath == "/usr/lib") {
+            QStringList javaDirs = { "java*" };
+            entries = dir.entryInfoList(javaDirs, QDir::Dirs | QDir::NoDotAndDotDot);
+        } else {
+            entries = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+        }
         for (auto& entry : entries) {
             QString prefix;
             prefix = entry.canonicalFilePath();
@@ -415,6 +421,7 @@ QList<QString> JavaUtils::FindJavaPaths()
     scanJavaDirs("/usr/lib/jvm");
     scanJavaDirs("/usr/lib64/jvm");
     scanJavaDirs("/usr/lib32/jvm");
+    scanJavaDirs("/usr/lib");
     // javas stored in Prism Launcher's folder
     scanJavaDirs("java");
     // manually installed JDKs in /opt
