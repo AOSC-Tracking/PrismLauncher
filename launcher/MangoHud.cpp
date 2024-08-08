@@ -38,19 +38,20 @@
 
 namespace MangoHud {
 
+/**
+ * Guess MangoHud install location by searching for vulkan layers in this order:
+ *
+ * $VK_LAYER_PATH
+ * $XDG_DATA_DIRS (/usr/local/share/:/usr/share/)
+ * $XDG_DATA_HOME  (~/.local/share)
+ * /etc
+ * $XDG_CONFIG_DIRS (/etc/xdg)
+ * $XDG_CONFIG_HOME (~/.config)
+ *
+ * @returns Absolute path to libMangoHud.so if found and empty QString otherwise.
+ */
 QString getLibraryString()
 {
-    /*
-     * Check for vulkan layers in this order:
-     *
-     * $VK_LAYER_PATH
-     * $XDG_DATA_DIRS (/usr/local/share/:/usr/share/)
-     * $XDG_DATA_HOME  (~/.local/share)
-     * /etc
-     * $XDG_CONFIG_DIRS (/etc/xdg)
-     * $XDG_CONFIG_HOME (~/.config)
-     */
-
     QStringList vkLayerList;
     {
         QString home = QDir::homePath();
@@ -85,7 +86,7 @@ QString getLibraryString()
         vkLayerList << FS::PathCombine(xdgConfigHome, "vulkan", "implicit_layer.d");
     }
 
-    for (QString vkLayer : vkLayerList) {
+    for (const QString& vkLayer : vkLayerList) {
         // prefer to use architecture specific vulkan layers
         QString currentArch = QSysInfo::currentCpuArchitecture();
 
@@ -95,8 +96,8 @@ QString getLibraryString()
 
         QStringList manifestNames = { QString("MangoHud.%1.json").arg(currentArch), "MangoHud.json" };
 
-        QString filePath = "";
-        for (QString manifestName : manifestNames) {
+        QString filePath{};
+        for (const QString& manifestName : manifestNames) {
             QString tryPath = FS::PathCombine(vkLayer, manifestName);
             if (QFile::exists(tryPath)) {
                 filePath = tryPath;
@@ -111,10 +112,18 @@ QString getLibraryString()
         auto conf = Json::requireDocument(filePath, vkLayer);
         auto confObject = Json::requireObject(conf, vkLayer);
         auto layer = Json::ensureObject(confObject, "layer");
-        return Json::ensureString(layer, "library_path");
+        QString libraryName = Json::ensureString(layer, "library_path");
+
+        // Check whether mangohud is usable
+        if (!libraryName.isEmpty()) {
+            QString libraryPath = findLibrary(libraryName);
+            if (!libraryPath.isEmpty()) {
+                return libraryPath;
+            }
+        }
     }
 
-    return QString();
+    return {};
 }
 
 QString findLibrary(QString libName)
